@@ -14,6 +14,13 @@ public:
     ~MainWindow() override;
 
 private:
+    void drawChart();
+
+    // первичная настройка ui
+    void setupUi();
+    void createConnections();
+
+private:
     std::unique_ptr<MainWindowPrivate> m_p;
 };
 #endif // MAINWINDOW_H
