@@ -10,11 +10,13 @@ find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Charts)
 
 set(INCLUDES
     include/mainwindow.h
+    include/generateWorker.h
 )
 
 set(SRC
     src/main.cpp
     src/mainwindow.cpp
+    src/generateWorker.cpp
 )
 
 set(FORMS

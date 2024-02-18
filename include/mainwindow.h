@@ -9,22 +9,25 @@ class MainWindowPrivate;
 class MainWindow final : public QMainWindow
 {
     Q_OBJECT
+    Q_DISABLE_COPY_MOVE(MainWindow)
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
-private:
-    void drawChart();
+public slots:
+    void drawChart(double x, double y);
 
+private:
     // первичная настройка ui
     void setupUi();
+
+    void setupThread();
     void createConnections();
+
+    // удаление потока
+    void deleteThread();
 
 private:
     std::unique_ptr<MainWindowPrivate> m_p;
 };
 #endif // MAINWINDOW_H
-
-// namespace
-
-// pragma
