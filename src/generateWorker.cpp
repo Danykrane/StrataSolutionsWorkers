@@ -12,35 +12,68 @@ const int MAX_POINT_VALUE = 15;
 class GenerateDataWorkerPrivate
 {
 public:
+
+    explicit GenerateDataWorkerPrivate()
+        : isRunning{ false }
+        , isPaused{ false }
+    {
+    }
+
     QMutex mutex;
 
     int xCounter = 0;
-    bool playState = false;
+
+    bool isRunning;
+    bool isPaused;
 };
 
 GenerateDataWorker::GenerateDataWorker()
     : m_p(std::make_unique<GenerateDataWorkerPrivate>())
 {}
 
-void GenerateDataWorker::generateData()
+GenerateDataWorker::~GenerateDataWorker()
 {
-    QMutexLocker locker(&m_p->mutex);
-    //    while (m_p->playState) {
-    double x = m_p->xCounter;
-    double y = QRandomGenerator::global()->bounded(MIN_POINT_VALUE, MAX_POINT_VALUE);
-
-    m_p->xCounter++;
-    emit sendGeneratedData(x, y);
-    QThread::msleep(200);
-    //    }
+    if (m_p->isRunning)
+    {
+        stopGeneration();
+    }
 }
 
-void GenerateDataWorker::resetData()
+void GenerateDataWorker::run()
 {
+    m_p->isRunning = true;
+
+    while (m_p->isRunning)
+    {
+        if (!m_p->isPaused)
+        {
+            double x = m_p->xCounter;
+            double y = QRandomGenerator::global()->bounded(MIN_POINT_VALUE, MAX_POINT_VALUE);
+
+            m_p->xCounter++;
+            emit sendGeneratedData(x, y);
+            QThread::msleep(250);
+        }
+        QThread::msleep(1);
+    }
+    emit finished();
+}
+
+void GenerateDataWorker::stopGeneration()
+{
+    QMutexLocker locker(&m_p->mutex);
+    m_p->isRunning = false;
     m_p->xCounter = 0;
 }
 
-void GenerateDataWorker::onPlayStateChaged(bool state)
+void GenerateDataWorker::pauseGeneration()
 {
-    m_p->playState = state;
+    QMutexLocker locker(&m_p->mutex);
+    m_p->isPaused = true;
+}
+
+void GenerateDataWorker::unpauseGeneration()
+{
+    QMutexLocker locker(&m_p->mutex);
+    m_p->isPaused = false;
 }

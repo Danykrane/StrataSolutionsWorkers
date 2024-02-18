@@ -24,9 +24,6 @@ private:
     void setupThread();
     void createConnections();
 
-    // удаление потока
-    void deleteThread();
-
 private:
     std::unique_ptr<MainWindowPrivate> m_p;
 };

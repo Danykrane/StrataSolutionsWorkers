@@ -40,8 +40,7 @@ public:
         : ui()
         //        , serires1(new QScatterSeries)
         , serires1(new QSplineSeries)
-        , thread(nullptr)
-        , generator(new GenerateDataWorker)
+        , generator( std::make_unique<GenerateDataWorker>() )
     {
        
     }
@@ -55,8 +54,8 @@ public:
     QVector<double> x, y;
 
     // поток для генератора
-    std::unique_ptr<QThread> thread;
-    GenerateDataWorker *generator;
+    QThread thread;
+    std::unique_ptr<GenerateDataWorker> generator;
 };
 
 /* --------------------------------- MainWindow ---------------------------- */
@@ -66,14 +65,16 @@ MainWindow::MainWindow(QWidget *parent)
 
 {
     setupUi();
+    setupThread();
     createConnections();
 }
 
 MainWindow::~MainWindow()
 {
+    m_p->generator->stopGeneration();
+    m_p->thread.terminate();
+    m_p->thread.wait();
     deinitResources();
-    // удаление потока
-    deleteThread();
 }
 
 void MainWindow::drawChart(double x, double y)
@@ -101,7 +102,7 @@ void MainWindow::setupUi()
     m_p->ui.playButton->setIcon(QIcon(":/icons/play"));
     m_p->ui.playButton->setIconSize(QSize(ICONS_SIZE, ICONS_SIZE));
     m_p->ui.playButton->setToolTip(tr("Старт генерации значений"));
-    m_p->ui.playButton->setCheckable(true);
+    // m_p->ui.playButton->setCheckable(true);
     //    m_p->ui.playButton->setStyleSheet("background:transparent;");
 
     m_p->ui.pauseButton->setIcon(QIcon(":/icons/pause"));
@@ -115,43 +116,40 @@ void MainWindow::setupUi()
 
 void MainWindow::setupThread()
 {
-    if (nullptr == m_p->thread) {
-        return;
-    }
-    m_p->thread = std::make_unique<QThread>();
-    m_p->thread.get()->setObjectName("GenerateDataWorkerThread");
-    m_p->generator->moveToThread(m_p->thread.get());
-    connect(m_p->generator, &GenerateDataWorker::sendGeneratedData, this, &MainWindow::drawChart);
-    m_p->thread->start();
+    connect(
+        &m_p->thread,
+        &QThread::started,
+        m_p->generator.get(),
+        &GenerateDataWorker::run
+    );
+    connect(
+        m_p->generator.get(),
+        &GenerateDataWorker::finished,
+        &m_p->thread,
+        &QThread::terminate
+    );
+    m_p->generator->moveToThread(&m_p->thread);
 }
 
 void MainWindow::createConnections()
 {
-    connect(m_p->ui.pauseButton, &QPushButton::clicked, this, []() { qDebug() << "pause clicked"; });
-    connect(m_p->ui.stopButton, &QPushButton::clicked, this, []() { qDebug() << "stop clicked"; });
-
-    connect(m_p->ui.playButton, &QPushButton::clicked, m_p->generator, [this](bool state) {
-        setupThread();
-        m_p->generator->generateData();
+    connect(m_p->ui.playButton, &QPushButton::clicked, this, [this]() {
+        m_p->generator->unpauseGeneration();
+        m_p->thread.start();
     });
 
-    connect(m_p->ui.playButton,
-            &QPushButton::clicked,
-            m_p->generator,
-            &GenerateDataWorker::onPlayStateChaged);
-
-    connect(m_p->ui.stopButton, &QPushButton::clicked, [this]() {
-        m_p->generator->resetData();
+    connect(m_p->ui.pauseButton, &QPushButton::clicked, this, [this]() {
+        m_p->generator->pauseGeneration();
+    });
+    connect(m_p->ui.stopButton, &QPushButton::clicked, [this](bool) {
+        m_p->generator->stopGeneration();
         m_p->serires1->clear();
-        deleteThread();
     });
-}
 
-void MainWindow::deleteThread()
-{
-    if (m_p->thread != nullptr) {
-        m_p->thread->quit();
-        m_p->thread->wait();
-        m_p->thread.reset();
-    }
+    connect(
+        m_p->generator.get(),
+        &GenerateDataWorker::sendGeneratedData,
+        this,
+        &MainWindow::drawChart
+    );
 }

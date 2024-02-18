@@ -9,16 +9,19 @@ class GenerateDataWorker : public QObject
 {
     Q_OBJECT
 public:
-    GenerateDataWorker();
+    explicit GenerateDataWorker();
+    ~GenerateDataWorker() override;
 
-public:
-    void generateData();
-    void resetData();
+    void stopGeneration();
+    void pauseGeneration();
+    void unpauseGeneration();
 
 public slots:
-    void onPlayStateChaged(bool state);
+    void run();
 
 signals:
+
+    void finished();
     void sendGeneratedData(double xValue, double yValue);
 
 private:
