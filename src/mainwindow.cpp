@@ -4,7 +4,7 @@
 
 #include <QChart>
 #include <QDebug>
-//#include <QLineSeries>
+
 #include <QRandomGenerator>
 #include <QScatterSeries>
 #include <QSplineSeries>
@@ -27,34 +27,66 @@ void deinitResources()
 
 namespace {
 constexpr int ICONS_SIZE = 65;
+
+const int MIN_AXIS_VALUE = 0;
+const int MAX_AXIS_VALUE = 15;
+
+const int STEP_INC_AXIS = 10;
 } // namespace
 
-// класс генератора точек в отдельном потоке
-/* ----------------------------- GenerateDataWorker ------------------------ */
-
 /* ----------------------------- MainWindowPrivate ------------------------- */
+/*!
+ * \brief Приватный класс с данными окна
+ */
 class MainWindowPrivate
 {
 public:
+    /*!
+     * \brief Конструктор приватного класса
+     */
     explicit MainWindowPrivate()
         : ui()
-        //        , serires1(new QScatterSeries)
         , serires1(new QSplineSeries)
-        , generator( std::make_unique<GenerateDataWorker>() )
-    {
-       
-    }
+        , axisX(new QValueAxis)
+        , axisY(new QValueAxis)
+        , generator(std::make_unique<GenerateDataWorker>())
+    {}
 
     ~MainWindowPrivate() = default;
 
+    /*!
+     * \brief Компонента UI
+     */
     Ui::MainWindow ui;
-    QChart chart;
-    //    QScatterSeries *serires1;
-    QSplineSeries *serires1;
-    QVector<double> x, y;
 
-    // поток для генератора
+    /*!
+     * \brief График 
+     */
+    QChart chart;
+
+    /*!
+     * \brief Сплайн для графика
+     */
+    QSplineSeries *serires1;
+
+    /*!
+     * \brief Ось X
+     */
+    QValueAxis *axisX;
+
+    /*!
+     * \brief Ось Y
+     */
+    QValueAxis *axisY;
+
+    /*!
+     * \brief Поток для генератора координат точек
+     */
     QThread thread;
+
+    /*!
+     * \brief Генератор коородинат точки
+     */
     std::unique_ptr<GenerateDataWorker> generator;
 };
 
@@ -79,6 +111,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::drawChart(double x, double y)
 {
+    if (x > m_p->axisX->max()) {
+        m_p->axisX->setRange(0, m_p->axisX->max() + STEP_INC_AXIS);
+    }
+
     m_p->serires1->append(x, y);
 }
 
@@ -91,19 +127,18 @@ void MainWindow::setupUi()
     m_p->ui.graphicsView->setChart(&m_p->chart);
     m_p->chart.setTitle(tr("График"));
     m_p->chart.addSeries(m_p->serires1);
-    QValueAxis *axisX = new QValueAxis;
-    axisX->setRange(0, 15);
-    QValueAxis *axisY = new QValueAxis;
-    axisY->setRange(0, 15);
-    m_p->chart.setAxisX(axisX, m_p->serires1);
-    m_p->chart.setAxisY(axisY, m_p->serires1);
+    m_p->serires1->setColor(QColor::fromRgb(54, 110, 214));
+    m_p->axisX->setRange(MIN_AXIS_VALUE, MAX_AXIS_VALUE);
+    m_p->axisY->setRange(MIN_AXIS_VALUE, MAX_AXIS_VALUE);
+    m_p->chart.addAxis(m_p->axisX, Qt::AlignBottom);
+    m_p->chart.addAxis(m_p->axisY, Qt::AlignLeft);
+    m_p->serires1->attachAxis(m_p->axisY);
+    m_p->serires1->attachAxis(m_p->axisX);
 
     // настройка кнопок
     m_p->ui.playButton->setIcon(QIcon(":/icons/play"));
     m_p->ui.playButton->setIconSize(QSize(ICONS_SIZE, ICONS_SIZE));
     m_p->ui.playButton->setToolTip(tr("Старт генерации значений"));
-    // m_p->ui.playButton->setCheckable(true);
-    //    m_p->ui.playButton->setStyleSheet("background:transparent;");
 
     m_p->ui.pauseButton->setIcon(QIcon(":/icons/pause"));
     m_p->ui.pauseButton->setIconSize(QSize(ICONS_SIZE, ICONS_SIZE));
@@ -116,18 +151,8 @@ void MainWindow::setupUi()
 
 void MainWindow::setupThread()
 {
-    connect(
-        &m_p->thread,
-        &QThread::started,
-        m_p->generator.get(),
-        &GenerateDataWorker::run
-    );
-    connect(
-        m_p->generator.get(),
-        &GenerateDataWorker::finished,
-        &m_p->thread,
-        &QThread::terminate
-    );
+    connect(&m_p->thread, &QThread::started, m_p->generator.get(), &GenerateDataWorker::run);
+    connect(m_p->generator.get(), &GenerateDataWorker::finished, &m_p->thread, &QThread::terminate);
     m_p->generator->moveToThread(&m_p->thread);
 }
 
@@ -144,12 +169,11 @@ void MainWindow::createConnections()
     connect(m_p->ui.stopButton, &QPushButton::clicked, [this](bool) {
         m_p->generator->stopGeneration();
         m_p->serires1->clear();
+        m_p->axisX->setRange(MIN_AXIS_VALUE, MAX_AXIS_VALUE);
     });
 
-    connect(
-        m_p->generator.get(),
-        &GenerateDataWorker::sendGeneratedData,
-        this,
-        &MainWindow::drawChart
-    );
+    connect(m_p->generator.get(),
+            &GenerateDataWorker::sendGeneratedData,
+            this,
+            &MainWindow::drawChart);
 }

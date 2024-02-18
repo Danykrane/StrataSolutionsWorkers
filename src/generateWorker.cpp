@@ -9,21 +9,38 @@ const int MIN_POINT_VALUE = 0;
 const int MAX_POINT_VALUE = 15;
 } // namespace
 
+/*!
+ * \brief Приватный класс с данными
+ */
 class GenerateDataWorkerPrivate
 {
 public:
-
+    /*!
+     * \brief Конструктор класса
+     */
     explicit GenerateDataWorkerPrivate()
         : isRunning{ false }
         , isPaused{ false }
-    {
-    }
+    {}
 
+    /*!
+     * \brief Мьютекс
+     */
     QMutex mutex;
 
+    /*!
+     * \brief Cчетчик текущей координаты X
+     */
     int xCounter = 0;
 
+    /*!
+     * \brief Состояние рабатающего генератора
+     */
     bool isRunning;
+
+    /*!
+     * \brief Состояник генератора, поставленного на паузу
+     */
     bool isPaused;
 };
 
