@@ -13,6 +13,7 @@ set(INCLUDES
     include/generateWorker.h
 )
 
+
 set(SRC
     src/main.cpp
     src/mainwindow.cpp
